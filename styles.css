@@ -28,8 +28,7 @@
   z-index: 10000;
 }
 
-.cvpc-control-bar.cvpc-visible,
-.cvpc-wrapper:hover .cvpc-control-bar {
+.cvpc-control-bar.cvpc-visible {
   opacity: 1;
 }
 
@@ -76,6 +75,26 @@
   height: 24px;
 }
 
+/* Play/Pause pulse animation */
+@keyframes cvpc-pulse {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(233, 69, 96, 0.6);
+  }
+  50% {
+    transform: scale(1.15);
+    box-shadow: 0 0 0 8px rgba(233, 69, 96, 0);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(233, 69, 96, 0);
+  }
+}
+
+.cvpc-play-pause.cvpc-pulse {
+  animation: cvpc-pulse 0.4s ease-out;
+}
+
 /* Spacers */
 .cvpc-spacer {
   flex: 1;
@@ -86,13 +105,32 @@
   flex-shrink: 0;
 }
 
+/* Progress Section (bar + time) */
+.cvpc-progress-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
 /* Progress Bar */
 .cvpc-progress-container {
-  flex: 1;
+  width: 100%;
   display: flex;
   align-items: center;
   padding: 8px 0;
   cursor: pointer;
+}
+
+/* Time Display */
+.cvpc-time-display {
+  font-family: 'SF Mono', 'Consolas', 'Monaco', monospace;
+  font-size: 11px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.8);
+  text-align: center;
+  letter-spacing: 0.5px;
 }
 
 .cvpc-progress-bar {
@@ -256,6 +294,10 @@
 .cvpc-wrapper:fullscreen .cvpc-progress-handle {
   width: 16px;
   height: 16px;
+}
+
+.cvpc-wrapper:fullscreen .cvpc-time-display {
+  font-size: 13px;
 }
 
 /* Webkit fullscreen */

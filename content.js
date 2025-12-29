@@ -8,11 +8,20 @@
 
   const SKIP_SECONDS = 10;
   const VOLUME_STEP = 0.1;
-  const HIDE_DELAY = 3000; // 3 seconds before hiding controls
+  const HIDE_DELAY = 5000; // 5 seconds before hiding controls
 
   // Track all enhanced videos and their state
   const enhancedVideos = new WeakSet();
-  const videoStates = new WeakMap(); // Stores { usingCustomControls, originalControlsAttr, hideTimer, progressBar, progressFill }
+  const videoStates = new WeakMap();
+
+  // Format time as hh:mm:ss
+  function formatTime(seconds) {
+    if (!isFinite(seconds) || isNaN(seconds)) return '00:00:00';
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = Math.floor(seconds % 60);
+    return [h, m, s].map(v => v.toString().padStart(2, '0')).join(':');
+  }
 
   // Create control bar element
   function createControlBar(video) {
@@ -40,6 +49,7 @@
     playPause.addEventListener('click', (e) => {
       e.stopPropagation();
       togglePlayPause(video);
+      triggerPlayPauseAnimation(playPause);
     });
 
     // Skip forward button
@@ -55,6 +65,10 @@
     // First spacer
     const spacer1 = document.createElement('div');
     spacer1.className = 'cvpc-spacer-small';
+
+    // Progress section (bar + time)
+    const progressSection = document.createElement('div');
+    progressSection.className = 'cvpc-progress-section';
 
     // Progress bar container
     const progressContainer = document.createElement('div');
@@ -76,6 +90,14 @@
     progressBar.appendChild(progressFill);
     progressBar.appendChild(progressHandle);
     progressContainer.appendChild(progressBar);
+
+    // Time display
+    const timeDisplay = document.createElement('div');
+    timeDisplay.className = 'cvpc-time-display';
+    timeDisplay.textContent = '00:00:00 / 00:00:00';
+
+    progressSection.appendChild(progressContainer);
+    progressSection.appendChild(timeDisplay);
 
     // Progress bar seeking
     let isSeeking = false;
@@ -152,12 +174,12 @@
       toggleFullscreen(video, wrapper);
     });
 
-    // Assemble control bar: [<<] [▶] [>>] (spacer) [progress] (spacer) [vol] [⛶]
+    // Assemble control bar: [<<] [▶] [>>] (spacer) [progress+time] (spacer) [vol] [⛶]
     controlBar.appendChild(skipBack);
     controlBar.appendChild(playPause);
     controlBar.appendChild(skipForward);
     controlBar.appendChild(spacer1);
-    controlBar.appendChild(progressContainer);
+    controlBar.appendChild(progressSection);
     controlBar.appendChild(spacer2);
     controlBar.appendChild(volumeContainer);
     controlBar.appendChild(fullscreenBtn);
@@ -172,13 +194,20 @@
       updateVolumeIcon(muteBtn, video.volume, video.muted);
     });
     
-    // Update progress bar
+    // Update progress bar and time display
     video.addEventListener('timeupdate', () => {
       if (!isSeeking && video.duration) {
         const percent = (video.currentTime / video.duration) * 100;
         progressFill.style.width = percent + '%';
         progressHandle.style.left = percent + '%';
       }
+      // Update time display
+      timeDisplay.textContent = `${formatTime(video.currentTime)} / ${formatTime(video.duration)}`;
+    });
+
+    // Update time display on duration change
+    video.addEventListener('loadedmetadata', () => {
+      timeDisplay.textContent = `${formatTime(video.currentTime)} / ${formatTime(video.duration)}`;
     });
     
     // Update buffered progress
@@ -192,15 +221,13 @@
 
     // Auto-hide controls setup
     let hideTimer = null;
-    let isHoveringControlBar = false;
 
     function showControls() {
       controlBar.classList.add('cvpc-visible');
-      resetHideTimer();
     }
 
     function hideControls() {
-      if (!isHoveringControlBar && !video.paused) {
+      if (!video.paused) {
         controlBar.classList.remove('cvpc-visible');
       }
     }
@@ -210,18 +237,9 @@
       hideTimer = setTimeout(hideControls, HIDE_DELAY);
     }
 
-    // Show controls on mouse movement over wrapper
-    wrapper.addEventListener('mousemove', showControls);
-    
-    // Keep controls visible when hovering control bar
-    controlBar.addEventListener('mouseenter', () => {
-      isHoveringControlBar = true;
-      controlBar.classList.add('cvpc-visible');
-      if (hideTimer) clearTimeout(hideTimer);
-    });
-    
-    controlBar.addEventListener('mouseleave', () => {
-      isHoveringControlBar = false;
+    // Show controls on mouse movement over wrapper (resets timer on movement only)
+    wrapper.addEventListener('mousemove', () => {
+      showControls();
       resetHideTimer();
     });
 
@@ -241,12 +259,14 @@
       resetHideTimer();
     });
 
-    // Click on video to play/pause
+    // Click on video to play/pause with animation
     wrapper.addEventListener('click', (e) => {
       // Only toggle if clicking on video or wrapper background, not on controls
       if (e.target === video || e.target === wrapper) {
         togglePlayPause(video);
+        triggerPlayPauseAnimation(playPause);
         showControls();
+        resetHideTimer();
       }
     });
 
@@ -256,9 +276,18 @@
       state.progressFill = progressFill;
       state.progressHandle = progressHandle;
       state.progressBuffered = progressBuffered;
+      state.playPauseBtn = playPause;
     }
 
     return wrapper;
+  }
+
+  // Trigger pulse animation on play/pause button
+  function triggerPlayPauseAnimation(button) {
+    button.classList.remove('cvpc-pulse');
+    // Force reflow to restart animation
+    void button.offsetWidth;
+    button.classList.add('cvpc-pulse');
   }
 
   function updatePlayPauseIcon(button, isPaused) {
@@ -467,6 +496,10 @@
       case 'Space':
         e.preventDefault();
         togglePlayPause(activeVideo);
+        // Trigger animation on spacebar too
+        if (state && state.playPauseBtn) {
+          triggerPlayPauseAnimation(state.playPauseBtn);
+        }
         break;
       case 'ArrowLeft':
         e.preventDefault();
