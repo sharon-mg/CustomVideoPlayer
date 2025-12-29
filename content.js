@@ -8,10 +8,11 @@
 
   const SKIP_SECONDS = 10;
   const VOLUME_STEP = 0.1;
+  const HIDE_DELAY = 3000; // 3 seconds before hiding controls
 
   // Track all enhanced videos and their state
   const enhancedVideos = new WeakSet();
-  const videoStates = new WeakMap(); // Stores { usingCustomControls: boolean, originalControlsAttr: boolean }
+  const videoStates = new WeakMap(); // Stores { usingCustomControls, originalControlsAttr, hideTimer, progressBar, progressFill }
 
   // Create control bar element
   function createControlBar(video) {
@@ -51,9 +52,63 @@
       video.currentTime = Math.min(video.duration || Infinity, video.currentTime + SKIP_SECONDS);
     });
 
-    // Spacer
-    const spacer = document.createElement('div');
-    spacer.className = 'cvpc-spacer';
+    // First spacer
+    const spacer1 = document.createElement('div');
+    spacer1.className = 'cvpc-spacer-small';
+
+    // Progress bar container
+    const progressContainer = document.createElement('div');
+    progressContainer.className = 'cvpc-progress-container';
+    
+    const progressBar = document.createElement('div');
+    progressBar.className = 'cvpc-progress-bar';
+    
+    const progressBuffered = document.createElement('div');
+    progressBuffered.className = 'cvpc-progress-buffered';
+    
+    const progressFill = document.createElement('div');
+    progressFill.className = 'cvpc-progress-fill';
+    
+    const progressHandle = document.createElement('div');
+    progressHandle.className = 'cvpc-progress-handle';
+    
+    progressBar.appendChild(progressBuffered);
+    progressBar.appendChild(progressFill);
+    progressBar.appendChild(progressHandle);
+    progressContainer.appendChild(progressBar);
+
+    // Progress bar seeking
+    let isSeeking = false;
+    
+    function seekToPosition(e) {
+      const rect = progressBar.getBoundingClientRect();
+      const percent = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+      video.currentTime = percent * (video.duration || 0);
+    }
+    
+    progressContainer.addEventListener('mousedown', (e) => {
+      e.stopPropagation();
+      isSeeking = true;
+      seekToPosition(e);
+      document.addEventListener('mousemove', onSeekMove);
+      document.addEventListener('mouseup', onSeekEnd);
+    });
+    
+    function onSeekMove(e) {
+      if (isSeeking) {
+        seekToPosition(e);
+      }
+    }
+    
+    function onSeekEnd() {
+      isSeeking = false;
+      document.removeEventListener('mousemove', onSeekMove);
+      document.removeEventListener('mouseup', onSeekEnd);
+    }
+
+    // Second spacer
+    const spacer2 = document.createElement('div');
+    spacer2.className = 'cvpc-spacer-small';
 
     // Volume container
     const volumeContainer = document.createElement('div');
@@ -84,14 +139,8 @@
       video.muted = false;
     });
 
-    // Volume percentage
-    const volumePercent = document.createElement('span');
-    volumePercent.className = 'cvpc-volume-percent';
-    volumePercent.textContent = Math.round(video.volume * 100) + '%';
-
     volumeContainer.appendChild(muteBtn);
     volumeContainer.appendChild(volumeSlider);
-    volumeContainer.appendChild(volumePercent);
 
     // Fullscreen button
     const fullscreenBtn = document.createElement('button');
@@ -103,11 +152,13 @@
       toggleFullscreen(video, wrapper);
     });
 
-    // Assemble control bar
+    // Assemble control bar: [<<] [▶] [>>] (spacer) [progress] (spacer) [vol] [⛶]
     controlBar.appendChild(skipBack);
     controlBar.appendChild(playPause);
     controlBar.appendChild(skipForward);
-    controlBar.appendChild(spacer);
+    controlBar.appendChild(spacer1);
+    controlBar.appendChild(progressContainer);
+    controlBar.appendChild(spacer2);
     controlBar.appendChild(volumeContainer);
     controlBar.appendChild(fullscreenBtn);
 
@@ -118,24 +169,94 @@
     video.addEventListener('pause', () => updatePlayPauseIcon(playPause, true));
     video.addEventListener('volumechange', () => {
       volumeSlider.value = video.volume;
-      volumePercent.textContent = Math.round(video.volume * 100) + '%';
       updateVolumeIcon(muteBtn, video.volume, video.muted);
     });
-
-    // Show/hide control bar on hover
-    wrapper.addEventListener('mouseenter', () => {
-      controlBar.classList.add('cvpc-visible');
-    });
-    wrapper.addEventListener('mouseleave', () => {
-      controlBar.classList.remove('cvpc-visible');
-    });
-
-    // Also show on video click (for touch devices)
-    wrapper.addEventListener('click', (e) => {
-      if (e.target === wrapper || e.target === video) {
-        controlBar.classList.toggle('cvpc-visible');
+    
+    // Update progress bar
+    video.addEventListener('timeupdate', () => {
+      if (!isSeeking && video.duration) {
+        const percent = (video.currentTime / video.duration) * 100;
+        progressFill.style.width = percent + '%';
+        progressHandle.style.left = percent + '%';
       }
     });
+    
+    // Update buffered progress
+    video.addEventListener('progress', () => {
+      if (video.buffered.length > 0 && video.duration) {
+        const bufferedEnd = video.buffered.end(video.buffered.length - 1);
+        const percent = (bufferedEnd / video.duration) * 100;
+        progressBuffered.style.width = percent + '%';
+      }
+    });
+
+    // Auto-hide controls setup
+    let hideTimer = null;
+    let isHoveringControlBar = false;
+
+    function showControls() {
+      controlBar.classList.add('cvpc-visible');
+      resetHideTimer();
+    }
+
+    function hideControls() {
+      if (!isHoveringControlBar && !video.paused) {
+        controlBar.classList.remove('cvpc-visible');
+      }
+    }
+
+    function resetHideTimer() {
+      if (hideTimer) clearTimeout(hideTimer);
+      hideTimer = setTimeout(hideControls, HIDE_DELAY);
+    }
+
+    // Show controls on mouse movement over wrapper
+    wrapper.addEventListener('mousemove', showControls);
+    
+    // Keep controls visible when hovering control bar
+    controlBar.addEventListener('mouseenter', () => {
+      isHoveringControlBar = true;
+      controlBar.classList.add('cvpc-visible');
+      if (hideTimer) clearTimeout(hideTimer);
+    });
+    
+    controlBar.addEventListener('mouseleave', () => {
+      isHoveringControlBar = false;
+      resetHideTimer();
+    });
+
+    // Hide controls when mouse leaves wrapper
+    wrapper.addEventListener('mouseleave', () => {
+      if (hideTimer) clearTimeout(hideTimer);
+      hideControls();
+    });
+
+    // Show controls when video is paused
+    video.addEventListener('pause', () => {
+      showControls();
+      if (hideTimer) clearTimeout(hideTimer); // Don't hide while paused
+    });
+
+    video.addEventListener('play', () => {
+      resetHideTimer();
+    });
+
+    // Click on video to play/pause
+    wrapper.addEventListener('click', (e) => {
+      // Only toggle if clicking on video or wrapper background, not on controls
+      if (e.target === video || e.target === wrapper) {
+        togglePlayPause(video);
+        showControls();
+      }
+    });
+
+    // Store references for later
+    const state = videoStates.get(video);
+    if (state) {
+      state.progressFill = progressFill;
+      state.progressHandle = progressHandle;
+      state.progressBuffered = progressBuffered;
+    }
 
     return wrapper;
   }
