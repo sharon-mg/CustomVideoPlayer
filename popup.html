@@ -245,6 +245,30 @@
       font-size: 11px;
       color: #666;
     }
+
+    input[type="color"] {
+      width: 40px;
+      height: 30px;
+      padding: 2px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 4px;
+      cursor: pointer;
+      transition: border-color 0.15s ease;
+    }
+
+    input[type="color"]:hover {
+      border-color: rgba(255, 255, 255, 0.3);
+    }
+
+    input[type="color"]::-webkit-color-swatch-wrapper {
+      padding: 2px;
+    }
+
+    input[type="color"]::-webkit-color-swatch {
+      border-radius: 2px;
+      border: none;
+    }
   </style>
 </head>
 <body>
@@ -284,6 +308,14 @@
           <input type="text" id="skipCtrl" value="30">
           <span class="input-suffix">seconds</span>
         </div>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <div class="section-title">Appearance</div>
+      <div class="settings-row">
+        <label for="progressColor">Progress bar color:</label>
+        <input type="color" id="progressColor" value="#e94560">
       </div>
     </div>
 

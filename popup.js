@@ -3,6 +3,7 @@
 const DEFAULT_SITES = ['clipro.tv'];
 const DEFAULT_SKIP_NORMAL = 10;
 const DEFAULT_SKIP_CTRL = 30;
+const DEFAULT_PROGRESS_COLOR = '#e94560';
 
 const siteListEl = document.getElementById('siteList');
 const newSiteInput = document.getElementById('newSite');
@@ -10,6 +11,7 @@ const addBtn = document.getElementById('addBtn');
 const statusEl = document.getElementById('status');
 const skipNormalInput = document.getElementById('skipNormal');
 const skipCtrlInput = document.getElementById('skipCtrl');
+const progressColorInput = document.getElementById('progressColor');
 
 // Load and display sites
 async function loadSites() {
@@ -23,6 +25,18 @@ async function loadSkipSettings() {
   const { skipNormal, skipCtrl } = await chrome.storage.sync.get(['skipNormal', 'skipCtrl']);
   skipNormalInput.value = skipNormal !== undefined ? skipNormal : DEFAULT_SKIP_NORMAL;
   skipCtrlInput.value = skipCtrl !== undefined ? skipCtrl : DEFAULT_SKIP_CTRL;
+}
+
+// Load color setting
+async function loadColorSetting() {
+  const { progressColor } = await chrome.storage.sync.get('progressColor');
+  progressColorInput.value = progressColor || DEFAULT_PROGRESS_COLOR;
+}
+
+// Save color setting
+async function saveColorSetting() {
+  const progressColor = progressColorInput.value;
+  await chrome.storage.sync.set({ progressColor });
 }
 
 // Save skip interval settings
@@ -175,6 +189,10 @@ skipCtrlInput.addEventListener('input', (e) => {
   debouncedSave();
 });
 
+// Color picker change listener
+progressColorInput.addEventListener('input', saveColorSetting);
+
 // Initialize
 loadSites();
 loadSkipSettings();
+loadColorSetting();

@@ -9,6 +9,7 @@
   // Default settings (can be overridden by storage)
   let skipSeconds = 10;
   let skipSecondsCtrl = 30;
+  let progressColor = '#e94560';
   const VOLUME_STEP = 0.1;
   const HIDE_DELAY = 4000; // 4 seconds before hiding controls
 
@@ -19,9 +20,10 @@
   // Load settings from storage
   async function loadSettings() {
     try {
-      const { skipNormal, skipCtrl } = await chrome.storage.sync.get(['skipNormal', 'skipCtrl']);
+      const { skipNormal, skipCtrl, progressColor: storedColor } = await chrome.storage.sync.get(['skipNormal', 'skipCtrl', 'progressColor']);
       if (skipNormal !== undefined) skipSeconds = skipNormal;
       if (skipCtrl !== undefined) skipSecondsCtrl = skipCtrl;
+      if (storedColor !== undefined) progressColor = storedColor;
     } catch (e) {
       console.log('[Custom Video Controls] Could not load settings:', e);
     }
@@ -32,6 +34,13 @@
     if (namespace === 'sync') {
       if (changes.skipNormal) skipSeconds = changes.skipNormal.newValue;
       if (changes.skipCtrl) skipSecondsCtrl = changes.skipCtrl.newValue;
+      if (changes.progressColor) {
+        progressColor = changes.progressColor.newValue;
+        // Update all existing progress bars
+        document.querySelectorAll('.cvpc-progress-fill').forEach(el => {
+          el.style.background = progressColor;
+        });
+      }
     }
   });
 
@@ -110,6 +119,7 @@
     
     const progressFill = document.createElement('div');
     progressFill.className = 'cvpc-progress-fill';
+    progressFill.style.background = progressColor;
     
     const progressHandle = document.createElement('div');
     progressHandle.className = 'cvpc-progress-handle';
