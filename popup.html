@@ -199,6 +199,52 @@
       background: rgba(233, 69, 96, 0.1);
       color: #e94560;
     }
+
+    .settings-section {
+      margin-top: 20px;
+      padding-top: 16px;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .settings-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+
+    .settings-row label {
+      font-size: 13px;
+      color: #ccc;
+    }
+
+    .input-group {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .input-group input[type="text"] {
+      width: 50px;
+      padding: 6px 8px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 4px;
+      color: #fff;
+      font-size: 13px;
+      text-align: center;
+      outline: none;
+      transition: border-color 0.15s ease;
+    }
+
+    .input-group input[type="text"]:focus {
+      border-color: #e94560;
+    }
+
+    .input-suffix {
+      font-size: 11px;
+      color: #666;
+    }
   </style>
 </head>
 <body>
@@ -223,12 +269,31 @@
 
     <div class="status" id="status"></div>
 
+    <div class="settings-section">
+      <div class="section-title">Skip Intervals</div>
+      <div class="settings-row">
+        <label for="skipNormal">Normal skip:</label>
+        <div class="input-group">
+          <input type="text" id="skipNormal" value="10">
+          <span class="input-suffix">seconds</span>
+        </div>
+      </div>
+      <div class="settings-row">
+        <label for="skipCtrl">Ctrl + skip:</label>
+        <div class="input-group">
+          <input type="text" id="skipCtrl" value="30">
+          <span class="input-suffix">seconds</span>
+        </div>
+      </div>
+    </div>
+
     <div class="shortcuts">
       <div class="section-title">Keyboard Shortcuts</div>
       <div class="shortcut-list">
         <div class="shortcut"><kbd>Space</kbd> Play/Pause</div>
-        <div class="shortcut"><kbd>←</kbd> Skip -10s</div>
-        <div class="shortcut"><kbd>→</kbd> Skip +10s</div>
+        <div class="shortcut"><kbd>←</kbd> Skip back</div>
+        <div class="shortcut"><kbd>→</kbd> Skip forward</div>
+        <div class="shortcut"><kbd>Ctrl</kbd>+<kbd>←/→</kbd> Long skip</div>
         <div class="shortcut"><kbd>↑</kbd> Volume up</div>
         <div class="shortcut"><kbd>↓</kbd> Volume down</div>
         <div class="shortcut"><kbd>M</kbd> Mute</div>

@@ -6,13 +6,39 @@
   if (window.__customVideoControlsInjected) return;
   window.__customVideoControlsInjected = true;
 
-  const SKIP_SECONDS = 10;
+  // Default settings (can be overridden by storage)
+  let skipSeconds = 10;
+  let skipSecondsCtrl = 30;
   const VOLUME_STEP = 0.1;
   const HIDE_DELAY = 4000; // 4 seconds before hiding controls
 
   // Track all enhanced videos and their state
   const enhancedVideos = new WeakSet();
   const videoStates = new WeakMap();
+
+  // Load settings from storage
+  async function loadSettings() {
+    try {
+      const { skipNormal, skipCtrl } = await chrome.storage.sync.get(['skipNormal', 'skipCtrl']);
+      if (skipNormal !== undefined) skipSeconds = skipNormal;
+      if (skipCtrl !== undefined) skipSecondsCtrl = skipCtrl;
+    } catch (e) {
+      console.log('[Custom Video Controls] Could not load settings:', e);
+    }
+  }
+
+  // Listen for storage changes to update settings in real-time
+  chrome.storage.onChanged.addListener((changes, namespace) => {
+    if (namespace === 'sync') {
+      if (changes.skipNormal) skipSeconds = changes.skipNormal.newValue;
+      if (changes.skipCtrl) skipSecondsCtrl = changes.skipCtrl.newValue;
+    }
+  });
+
+  // Get skip amount based on Ctrl key state
+  function getSkipAmount(ctrlKey) {
+    return ctrlKey ? skipSecondsCtrl : skipSeconds;
+  }
 
   // Format time as hh:mm:ss
   function formatTime(seconds) {
@@ -34,11 +60,12 @@
     // Skip backward button
     const skipBack = document.createElement('button');
     skipBack.className = 'cvpc-btn cvpc-skip-back';
-    skipBack.innerHTML = `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/><text x="12" y="15" text-anchor="middle" font-size="7" font-weight="bold">10</text></svg>`;
-    skipBack.title = 'Skip back 10 seconds (←)';
+    skipBack.innerHTML = `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg>`;
+    skipBack.title = 'Skip back (←, Ctrl for longer)';
     skipBack.addEventListener('click', (e) => {
       e.stopPropagation();
-      video.currentTime = Math.max(0, video.currentTime - SKIP_SECONDS);
+      const amount = getSkipAmount(e.ctrlKey);
+      video.currentTime = Math.max(0, video.currentTime - amount);
     });
 
     // Play/Pause button
@@ -55,11 +82,12 @@
     // Skip forward button
     const skipForward = document.createElement('button');
     skipForward.className = 'cvpc-btn cvpc-skip-forward';
-    skipForward.innerHTML = `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 5V1l5 5-5 5V7c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6h2c0 4.42-3.58 8-8 8s-8-3.58-8-8 3.58-8 8-8z"/><text x="12" y="15" text-anchor="middle" font-size="7" font-weight="bold">10</text></svg>`;
-    skipForward.title = 'Skip forward 10 seconds (→)';
+    skipForward.innerHTML = `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 5V1l5 5-5 5V7c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6h2c0 4.42-3.58 8-8 8s-8-3.58-8-8 3.58-8 8-8z"/></svg>`;
+    skipForward.title = 'Skip forward (→, Ctrl for longer)';
     skipForward.addEventListener('click', (e) => {
       e.stopPropagation();
-      video.currentTime = Math.min(video.duration || Infinity, video.currentTime + SKIP_SECONDS);
+      const amount = getSkipAmount(e.ctrlKey);
+      video.currentTime = Math.min(video.duration || Infinity, video.currentTime + amount);
     });
 
     // First spacer
@@ -511,11 +539,13 @@
         break;
       case 'ArrowLeft':
         e.preventDefault();
-        activeVideo.currentTime = Math.max(0, activeVideo.currentTime - SKIP_SECONDS);
+        const skipBackAmount = getSkipAmount(e.ctrlKey);
+        activeVideo.currentTime = Math.max(0, activeVideo.currentTime - skipBackAmount);
         break;
       case 'ArrowRight':
         e.preventDefault();
-        activeVideo.currentTime = Math.min(activeVideo.duration || Infinity, activeVideo.currentTime + SKIP_SECONDS);
+        const skipForwardAmount = getSkipAmount(e.ctrlKey);
+        activeVideo.currentTime = Math.min(activeVideo.duration || Infinity, activeVideo.currentTime + skipForwardAmount);
         break;
       case 'ArrowUp':
         e.preventDefault();
@@ -569,13 +599,18 @@
   }
 
   // Initialize
-  document.addEventListener('keydown', handleKeyboard);
-  
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', observeVideos);
-  } else {
-    observeVideos();
+  async function init() {
+    await loadSettings();
+    document.addEventListener('keydown', handleKeyboard);
+    
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', observeVideos);
+    } else {
+      observeVideos();
+    }
+
+    console.log('[Custom Video Controls] Extension loaded');
   }
 
-  console.log('[Custom Video Controls] Extension loaded');
+  init();
 })();

@@ -1,17 +1,47 @@
-// Popup script for managing enabled sites
+// Popup script for managing enabled sites and settings
 
 const DEFAULT_SITES = ['clipro.tv'];
+const DEFAULT_SKIP_NORMAL = 10;
+const DEFAULT_SKIP_CTRL = 30;
 
 const siteListEl = document.getElementById('siteList');
 const newSiteInput = document.getElementById('newSite');
 const addBtn = document.getElementById('addBtn');
 const statusEl = document.getElementById('status');
+const skipNormalInput = document.getElementById('skipNormal');
+const skipCtrlInput = document.getElementById('skipCtrl');
 
 // Load and display sites
 async function loadSites() {
   const { sites } = await chrome.storage.sync.get('sites');
   const siteList = sites || DEFAULT_SITES;
   renderSites(siteList);
+}
+
+// Load skip interval settings
+async function loadSkipSettings() {
+  const { skipNormal, skipCtrl } = await chrome.storage.sync.get(['skipNormal', 'skipCtrl']);
+  skipNormalInput.value = skipNormal !== undefined ? skipNormal : DEFAULT_SKIP_NORMAL;
+  skipCtrlInput.value = skipCtrl !== undefined ? skipCtrl : DEFAULT_SKIP_CTRL;
+}
+
+// Save skip interval settings
+async function saveSkipSettings() {
+  const skipNormal = parseInt(skipNormalInput.value, 10);
+  const skipCtrl = parseInt(skipCtrlInput.value, 10);
+
+  // Validate
+  if (isNaN(skipNormal) || skipNormal < 1 || skipNormal > 300) {
+    showStatus('Normal skip must be 1-300 seconds', true);
+    return;
+  }
+  if (isNaN(skipCtrl) || skipCtrl < 1 || skipCtrl > 300) {
+    showStatus('Ctrl skip must be 1-300 seconds', true);
+    return;
+  }
+
+  await chrome.storage.sync.set({ skipNormal, skipCtrl });
+  showStatus('Settings saved');
 }
 
 // Render site list
@@ -111,6 +141,15 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
+// Debounce helper for auto-save
+function debounce(fn, delay) {
+  let timer;
+  return function(...args) {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn.apply(this, args), delay);
+  };
+}
+
 // Event listeners
 addBtn.addEventListener('click', () => addSite(newSiteInput.value));
 
@@ -120,5 +159,22 @@ newSiteInput.addEventListener('keypress', (e) => {
   }
 });
 
+// Filter non-numeric input
+function filterNumericInput(e) {
+  e.target.value = e.target.value.replace(/[^0-9]/g, '');
+}
+
+// Auto-save skip settings on change (debounced)
+const debouncedSave = debounce(saveSkipSettings, 500);
+skipNormalInput.addEventListener('input', (e) => {
+  filterNumericInput(e);
+  debouncedSave();
+});
+skipCtrlInput.addEventListener('input', (e) => {
+  filterNumericInput(e);
+  debouncedSave();
+});
+
 // Initialize
 loadSites();
+loadSkipSettings();
