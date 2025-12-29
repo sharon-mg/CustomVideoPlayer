@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Video Player Controls</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+      width: 320px;
+      background: #1a1a2e;
+      color: #eaeaea;
+    }
+
+    .header {
+      background: linear-gradient(135deg, #16213e 0%, #1a1a2e 100%);
+      padding: 20px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .header h1 {
+      font-size: 16px;
+      font-weight: 600;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .header h1 svg {
+      width: 24px;
+      height: 24px;
+      fill: #e94560;
+    }
+
+    .header p {
+      font-size: 12px;
+      color: #888;
+      margin-top: 6px;
+    }
+
+    .content {
+      padding: 16px;
+    }
+
+    .section-title {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #e94560;
+      margin-bottom: 12px;
+    }
+
+    .site-list {
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 8px;
+      max-height: 180px;
+      overflow-y: auto;
+    }
+
+    .site-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 12px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .site-item:last-child {
+      border-bottom: none;
+    }
+
+    .site-name {
+      font-size: 13px;
+      color: #eaeaea;
+    }
+
+    .remove-btn {
+      background: none;
+      border: none;
+      color: #666;
+      cursor: pointer;
+      padding: 4px;
+      border-radius: 4px;
+      transition: all 0.15s ease;
+    }
+
+    .remove-btn:hover {
+      color: #e94560;
+      background: rgba(233, 69, 96, 0.1);
+    }
+
+    .remove-btn svg {
+      width: 16px;
+      height: 16px;
+    }
+
+    .empty-state {
+      padding: 24px;
+      text-align: center;
+      color: #666;
+      font-size: 13px;
+    }
+
+    .add-site {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .add-site input {
+      flex: 1;
+      padding: 10px 12px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 6px;
+      color: #fff;
+      font-size: 13px;
+      outline: none;
+      transition: border-color 0.15s ease;
+    }
+
+    .add-site input::placeholder {
+      color: #555;
+    }
+
+    .add-site input:focus {
+      border-color: #e94560;
+    }
+
+    .add-site button {
+      padding: 10px 16px;
+      background: #e94560;
+      border: none;
+      border-radius: 6px;
+      color: #fff;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .add-site button:hover {
+      background: #ff6b6b;
+    }
+
+    .shortcuts {
+      margin-top: 20px;
+      padding-top: 16px;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .shortcut-list {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .shortcut {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+      color: #888;
+    }
+
+    .shortcut kbd {
+      display: inline-block;
+      padding: 3px 6px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 10px;
+      color: #ccc;
+    }
+
+    .status {
+      margin-top: 12px;
+      padding: 8px 12px;
+      background: rgba(76, 175, 80, 0.1);
+      border-radius: 6px;
+      font-size: 12px;
+      color: #4caf50;
+      display: none;
+    }
+
+    .status.visible {
+      display: block;
+    }
+
+    .status.error {
+      background: rgba(233, 69, 96, 0.1);
+      color: #e94560;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>
+      <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/></svg>
+      Video Player Controls
+    </h1>
+    <p>Custom controls for HTML5 video players</p>
+  </div>
+
+  <div class="content">
+    <div class="section-title">Enabled Sites</div>
+    <div class="site-list" id="siteList">
+      <div class="empty-state">No sites configured</div>
+    </div>
+
+    <div class="add-site">
+      <input type="text" id="newSite" placeholder="Enter domain (e.g., example.com)">
+      <button id="addBtn">Add</button>
+    </div>
+
+    <div class="status" id="status"></div>
+
+    <div class="shortcuts">
+      <div class="section-title">Keyboard Shortcuts</div>
+      <div class="shortcut-list">
+        <div class="shortcut"><kbd>Space</kbd> Play/Pause</div>
+        <div class="shortcut"><kbd>←</kbd> Skip -10s</div>
+        <div class="shortcut"><kbd>→</kbd> Skip +10s</div>
+        <div class="shortcut"><kbd>↑</kbd> Volume up</div>
+        <div class="shortcut"><kbd>↓</kbd> Volume down</div>
+        <div class="shortcut"><kbd>M</kbd> Mute</div>
+        <div class="shortcut"><kbd>F</kbd> Fullscreen</div>
+      </div>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
