@@ -8,7 +8,7 @@
 
   const SKIP_SECONDS = 10;
   const VOLUME_STEP = 0.1;
-  const HIDE_DELAY = 5000; // 5 seconds before hiding controls
+  const HIDE_DELAY = 4000; // 4 seconds before hiding controls
 
   // Track all enhanced videos and their state
   const enhancedVideos = new WeakSet();
@@ -267,6 +267,14 @@
         triggerPlayPauseAnimation(playPause);
         showControls();
         resetHideTimer();
+      }
+    });
+
+    // Double-click on video to toggle fullscreen
+    wrapper.addEventListener('dblclick', (e) => {
+      if (e.target === video || e.target === wrapper) {
+        e.preventDefault();
+        toggleFullscreen(video, wrapper);
       }
     });
 
