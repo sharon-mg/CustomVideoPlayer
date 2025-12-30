@@ -455,27 +455,49 @@
     // Check if video already has our wrapper
     if (parent.classList.contains('cvpc-wrapper')) return;
 
+    // Capture video dimensions and styles BEFORE moving it (while it still has flex sizing)
+    const parentComputed = window.getComputedStyle(parent);
+    const originalVideoRect = video.getBoundingClientRect();
+    const originalVideoComputed = window.getComputedStyle(video);
+    const isFlexChild = parentComputed.display === 'flex' || parentComputed.display === 'inline-flex';
+    const videoFlexGrow = originalVideoComputed.flexGrow;
+    const videoFlexShrink = originalVideoComputed.flexShrink;
+    const videoFlexBasis = originalVideoComputed.flexBasis;
+
     // Insert wrapper
     parent.insertBefore(wrapper, video);
     wrapper.appendChild(video);
 
-    // Make sure wrapper matches video's size
-    const computedStyle = window.getComputedStyle(video);
-    if (computedStyle.width !== 'auto') {
-      wrapper.style.width = computedStyle.width;
+    // FIX: For flex containers, use flex properties instead of explicit dimensions
+    if (isFlexChild) {
+      // Use flex to control size - DON'T set width/height percentages (causes layout thrashing)
+      wrapper.style.flexGrow = videoFlexGrow;
+      wrapper.style.flexShrink = videoFlexShrink;
+      wrapper.style.flexBasis = videoFlexBasis;
+      wrapper.style.minWidth = '0'; // Allow flex shrink to work
+      wrapper.style.minHeight = '0';
+      // Copy flex-related classes from video to wrapper (e.g., Bootstrap's flex-grow-1)
+      // But exclude h-100/w-100 as they conflict with flex sizing
+      const flexClasses = Array.from(video.classList).filter(c => 
+        c.startsWith('flex-') || c.startsWith('mh-') || c.startsWith('mw-')
+      );
+      flexClasses.forEach(c => wrapper.classList.add(c));
+    } else {
+      // For non-flex: Apply the ORIGINAL dimensions captured before DOM move
+      wrapper.style.width = originalVideoRect.width + 'px';
+      wrapper.style.height = originalVideoRect.height + 'px';
     }
-    if (computedStyle.maxWidth) {
-      wrapper.style.maxWidth = computedStyle.maxWidth;
+
+    // Copy max constraints from original video
+    if (originalVideoComputed.maxWidth) {
+      wrapper.style.maxWidth = originalVideoComputed.maxWidth;
     }
-    if (computedStyle.height !== 'auto') {
-      wrapper.style.height = computedStyle.height;
-    }
-    if (computedStyle.maxHeight) {
-      wrapper.style.maxHeight = computedStyle.maxHeight;
+    if (originalVideoComputed.maxHeight) {
+      wrapper.style.maxHeight = originalVideoComputed.maxHeight;
     }
 
     // Copy some important styles
-    wrapper.style.display = 'inline-block';
+    wrapper.style.display = isFlexChild ? 'block' : 'inline-block';
     wrapper.style.position = 'relative';
 
     console.log('[Custom Video Controls] Enhanced video:', video.src || video.currentSrc);
