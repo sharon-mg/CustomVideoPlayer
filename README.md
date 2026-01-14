@@ -2,6 +2,10 @@
 
 A Chrome extension that adds custom controls, keyboard shortcuts, and enhanced features to HTML5 video players on any website.
 
+<p align="center">
+  <img src="example_player.png" alt="Example of the custom video player controls">
+</p>
+
 ## Features
 
 - **Custom Control Bar** – Modern, sleek controls that overlay on videos
