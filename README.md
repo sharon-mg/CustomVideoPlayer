@@ -101,7 +101,3 @@ Right-click on any video to access additional options:
 - **scripting** – Inject the custom controls into pages
 - **tabs** – Access tab information
 - **contextMenus** – Add right-click menu options on videos
-
-## License
-
-MIT License – feel free to use and modify as needed.
