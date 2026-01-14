@@ -13,9 +13,17 @@
   "host_permissions": [
     "<all_urls>"
   ],
+  "icons": {
+    "256": "player_logo_256.png",
+    "512": "player_logo_512.png"
+  },
   "action": {
     "default_popup": "popup.html",
-    "default_title": "Video Player Controls"
+    "default_title": "Video Player Controls",
+    "default_icon": {
+      "256": "player_logo_256.png",
+      "512": "player_logo_512.png"
+    }
   },
   "background": {
     "service_worker": "background.js"
