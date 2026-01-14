@@ -209,7 +209,7 @@
     fullscreenBtn.title = 'Fullscreen (F)';
     fullscreenBtn.addEventListener('click', (e) => {
       e.stopPropagation();
-      toggleFullscreen(video, wrapper);
+      toggleFullscreen(video, null);
     });
 
     // Assemble control bar: [<<] [▶] [>>] (spacer) [progress+time] (spacer) [vol] [⛶]
@@ -275,13 +275,26 @@
       hideTimer = setTimeout(hideControls, HIDE_DELAY);
     }
 
-    // Show controls on mouse movement over wrapper (resets timer on movement only)
+    // Show controls on mouse movement over video or overlay
+    video.addEventListener('mousemove', () => {
+      showControls();
+      resetHideTimer();
+    });
+    
     wrapper.addEventListener('mousemove', () => {
       showControls();
       resetHideTimer();
     });
 
-    // Hide controls when mouse leaves wrapper
+    // Hide controls when mouse leaves video area
+    video.addEventListener('mouseleave', (e) => {
+      // Don't hide if moving to the overlay/controls
+      if (!e.relatedTarget?.closest('.cvpc-overlay')) {
+        if (hideTimer) clearTimeout(hideTimer);
+        hideControls();
+      }
+    });
+    
     wrapper.addEventListener('mouseleave', () => {
       if (hideTimer) clearTimeout(hideTimer);
       hideControls();
@@ -297,23 +310,18 @@
       resetHideTimer();
     });
 
-    // Click on video to play/pause with animation
-    wrapper.addEventListener('click', (e) => {
-      // Only toggle if clicking on video or wrapper background, not on controls
-      if (e.target === video || e.target === wrapper) {
-        togglePlayPause(video);
-        triggerPlayPauseAnimation(playPause);
-        showControls();
-        resetHideTimer();
-      }
+    // Click on video to play/pause with animation (listen on video directly)
+    video.addEventListener('click', (e) => {
+      togglePlayPause(video);
+      triggerPlayPauseAnimation(playPause);
+      showControls();
+      resetHideTimer();
     });
 
     // Double-click on video to toggle fullscreen
-    wrapper.addEventListener('dblclick', (e) => {
-      if (e.target === video || e.target === wrapper) {
-        e.preventDefault();
-        toggleFullscreen(video, wrapper);
-      }
+    video.addEventListener('dblclick', (e) => {
+      e.preventDefault();
+      toggleFullscreen(video, null);
     });
 
     // Store references for later
@@ -356,17 +364,21 @@
 
   function togglePlayPause(video) {
     if (video.paused) {
-      video.play();
+      video.play().catch(err => {
+        console.error('[CVPC] Play failed:', err);
+      });
     } else {
       video.pause();
     }
   }
 
-  function toggleFullscreen(video, wrapper) {
+  function toggleFullscreen(video, unused) {
     if (document.fullscreenElement) {
       document.exitFullscreen();
     } else {
-      (wrapper || video).requestFullscreen();
+      // Use video's parent container for fullscreen (keeps overlay visible)
+      const parent = video.parentElement;
+      (parent || video).requestFullscreen();
     }
   }
 
@@ -375,8 +387,11 @@
     const state = videoStates.get(video);
     if (!state) return;
 
-    const wrapper = video.closest('.cvpc-wrapper');
-    const controlBar = wrapper?.querySelector('.cvpc-control-bar');
+    // Find overlay by data attribute or as next sibling
+    const overlay = video.dataset.cvpcId 
+      ? document.querySelector(`.cvpc-overlay[data-cvpc-for="${video.dataset.cvpcId}"]`)
+      : video.nextElementSibling?.classList?.contains('cvpc-overlay') ? video.nextElementSibling : null;
+    const controlBar = overlay?.querySelector('.cvpc-control-bar');
 
     if (state.usingCustomControls) {
       // Switch to native controls
@@ -395,17 +410,20 @@
 
   // Show a brief notification on the video
   function showNotification(video, message) {
-    const wrapper = video.closest('.cvpc-wrapper');
-    if (!wrapper) return;
+    // Find overlay by data attribute
+    const overlay = video.dataset.cvpcId 
+      ? document.querySelector(`.cvpc-overlay[data-cvpc-for="${video.dataset.cvpcId}"]`)
+      : video.nextElementSibling?.classList?.contains('cvpc-overlay') ? video.nextElementSibling : null;
+    if (!overlay) return;
 
     // Remove existing notification
-    const existing = wrapper.querySelector('.cvpc-notification');
+    const existing = overlay.querySelector('.cvpc-notification');
     if (existing) existing.remove();
 
     const notification = document.createElement('div');
     notification.className = 'cvpc-notification';
     notification.textContent = message;
-    wrapper.appendChild(notification);
+    overlay.appendChild(notification);
 
     // Trigger animation
     requestAnimationFrame(() => {
@@ -419,7 +437,7 @@
     }, 1500);
   }
 
-  // Wrap video element with custom controls
+  // Enhance video element with custom controls
   function enhanceVideo(video) {
     if (enhancedVideos.has(video)) return;
     enhancedVideos.add(video);
@@ -445,60 +463,36 @@
     // Hide native controls by default
     video.controls = false;
 
-    // Create wrapper and insert it
-    const wrapper = createControlBar(video);
+    // Create the overlay container (controls only, no wrapper around video)
+    const overlay = createControlBar(video);
     
-    // Position the wrapper around the video
+    // Position the overlay around the video
     const parent = video.parentElement;
     if (!parent) return;
 
-    // Check if video already has our wrapper
-    if (parent.classList.contains('cvpc-wrapper')) return;
+    // Check if video already has our overlay
+    if (video.nextElementSibling?.classList?.contains('cvpc-overlay')) return;
 
-    // Capture video dimensions and styles BEFORE moving it (while it still has flex sizing)
+    // FIX: Instead of wrapping the video (which breaks framework references),
+    // we insert an overlay as a sibling and position it over the video using CSS.
+    // This keeps the video in its original DOM position.
+    
+    // Change overlay class to indicate it's an overlay, not a wrapper
+    overlay.classList.remove('cvpc-wrapper');
+    overlay.classList.add('cvpc-overlay');
+    
+    // Ensure parent has position for absolute positioning to work
     const parentComputed = window.getComputedStyle(parent);
-    const originalVideoRect = video.getBoundingClientRect();
-    const originalVideoComputed = window.getComputedStyle(video);
-    const isFlexChild = parentComputed.display === 'flex' || parentComputed.display === 'inline-flex';
-    const videoFlexGrow = originalVideoComputed.flexGrow;
-    const videoFlexShrink = originalVideoComputed.flexShrink;
-    const videoFlexBasis = originalVideoComputed.flexBasis;
-
-    // Insert wrapper
-    parent.insertBefore(wrapper, video);
-    wrapper.appendChild(video);
-
-    // FIX: For flex containers, use flex properties instead of explicit dimensions
-    if (isFlexChild) {
-      // Use flex to control size - DON'T set width/height percentages (causes layout thrashing)
-      wrapper.style.flexGrow = videoFlexGrow;
-      wrapper.style.flexShrink = videoFlexShrink;
-      wrapper.style.flexBasis = videoFlexBasis;
-      wrapper.style.minWidth = '0'; // Allow flex shrink to work
-      wrapper.style.minHeight = '0';
-      // Copy flex-related classes from video to wrapper (e.g., Bootstrap's flex-grow-1)
-      // But exclude h-100/w-100 as they conflict with flex sizing
-      const flexClasses = Array.from(video.classList).filter(c => 
-        c.startsWith('flex-') || c.startsWith('mh-') || c.startsWith('mw-')
-      );
-      flexClasses.forEach(c => wrapper.classList.add(c));
-    } else {
-      // For non-flex: Apply the ORIGINAL dimensions captured before DOM move
-      wrapper.style.width = originalVideoRect.width + 'px';
-      wrapper.style.height = originalVideoRect.height + 'px';
+    if (parentComputed.position === 'static') {
+      parent.style.position = 'relative';
     }
-
-    // Copy max constraints from original video
-    if (originalVideoComputed.maxWidth) {
-      wrapper.style.maxWidth = originalVideoComputed.maxWidth;
-    }
-    if (originalVideoComputed.maxHeight) {
-      wrapper.style.maxHeight = originalVideoComputed.maxHeight;
-    }
-
-    // Copy some important styles
-    wrapper.style.display = isFlexChild ? 'block' : 'inline-block';
-    wrapper.style.position = 'relative';
+    
+    // Mark the video so we can find the overlay later
+    video.dataset.cvpcId = 'cvpc-' + Math.random().toString(36).substring(2, 9);
+    overlay.dataset.cvpcFor = video.dataset.cvpcId;
+    
+    // Insert overlay right after the video (as sibling, NOT wrapping it)
+    video.insertAdjacentElement('afterend', overlay);
 
     console.log('[Custom Video Controls] Enhanced video:', video.src || video.currentSrc);
   }
@@ -590,8 +584,7 @@
         break;
       case 'KeyF':
         e.preventDefault();
-        const wrapper = activeVideo.closest('.cvpc-wrapper');
-        toggleFullscreen(activeVideo, wrapper);
+        toggleFullscreen(activeVideo, null);
         break;
       case 'KeyM':
         e.preventDefault();
