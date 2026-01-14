@@ -1,4 +1,4 @@
-# Custom Video Player Controls
+#  <img src="player_logo_256.png" width="32" height="32" alt="WebPlayer icon">  Custom Video Player Controls
 
 A Chrome extension that adds custom controls, keyboard shortcuts, and enhanced features to HTML5 video players on any website.
 
