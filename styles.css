@@ -5,8 +5,7 @@
   display: inline-block;
   line-height: 0;
   background: #000;
-  overflow: hidden;
-  contain: strict;
+  contain: layout style;
 }
 
 .cvpc-wrapper video {
